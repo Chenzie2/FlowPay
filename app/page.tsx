@@ -1,3 +1,4 @@
+import Link from "next/link";
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#fdfbf9] text-[#241f23]">
@@ -27,9 +28,12 @@ export default function Home() {
           </a>
         </div>
 
-        <button className="rounded-full bg-[#4b3443] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#3d2936]">
-          Get started
-        </button>
+        <Link
+  href="/signup"
+  className="rounded-full bg-[#4b3443] px-6 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#3d2936]"
+>
+  Start with FlowPay
+</Link>
       </nav>
 
       {/* Hero */}

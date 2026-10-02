@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
+
 type Recipient = {
   name: string;
   phone: string;
@@ -287,7 +288,7 @@ export default function SendMoneyPage() {
             </p>
 
             <h1 className="mt-2 text-4xl font-semibold tracking-[-0.045em]">
-              You're all set.
+              You&apos;re all set.
             </h1>
 
             <p className="mt-4 max-w-md text-sm leading-6 text-[#766d72]">

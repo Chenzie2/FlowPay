@@ -84,7 +84,7 @@ export default function DashboardPage() {
           </h1>
 
           <p className="mt-2 text-sm text-[#766d72]">
-            Here's what's happening with your money.
+            Here&apos;s what&apos;s happening with your money.
           </p>
         </div>
 
