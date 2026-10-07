@@ -1,7 +1,64 @@
+"use client";
+
 import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import FlowPayLogo from "@/components/flowpay-logo";
 
 export default function SignupPage() {
+  const router = useRouter();
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+
+    const formData = new FormData(event.currentTarget);
+
+    const name = String(formData.get("name") ?? "");
+    const email = String(formData.get("email") ?? "");
+    const password = String(formData.get("password") ?? "");
+    const confirmPassword = String(
+      formData.get("confirm-password") ?? "",
+    );
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Something went wrong.");
+        setLoading(false);
+        return;
+      }
+
+      router.push("/login?signup=success");
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#fdfbf9] text-[#241f23]">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-6">
@@ -23,7 +80,10 @@ export default function SignupPage() {
               </p>
             </div>
 
-            <form className="mt-10 space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="mt-10 space-y-5"
+            >
               <div>
                 <label
                   htmlFor="name"
@@ -37,6 +97,7 @@ export default function SignupPage() {
                   name="name"
                   type="text"
                   placeholder="Your name"
+                  required
                   className="mt-2 w-full rounded-2xl border border-[#ebe4e1] bg-white px-4 py-3.5 text-sm outline-none transition placeholder:text-[#aaa1a5] focus:border-[#d98b9a]"
                 />
               </div>
@@ -54,6 +115,7 @@ export default function SignupPage() {
                   name="email"
                   type="email"
                   placeholder="you@example.com"
+                  required
                   className="mt-2 w-full rounded-2xl border border-[#ebe4e1] bg-white px-4 py-3.5 text-sm outline-none transition placeholder:text-[#aaa1a5] focus:border-[#d98b9a]"
                 />
               </div>
@@ -71,6 +133,8 @@ export default function SignupPage() {
                   name="password"
                   type="password"
                   placeholder="Create a password"
+                  required
+                  minLength={8}
                   className="mt-2 w-full rounded-2xl border border-[#ebe4e1] bg-white px-4 py-3.5 text-sm outline-none transition placeholder:text-[#aaa1a5] focus:border-[#d98b9a]"
                 />
               </div>
@@ -88,15 +152,27 @@ export default function SignupPage() {
                   name="confirm-password"
                   type="password"
                   placeholder="Enter your password again"
+                  required
+                  minLength={8}
                   className="mt-2 w-full rounded-2xl border border-[#ebe4e1] bg-white px-4 py-3.5 text-sm outline-none transition placeholder:text-[#aaa1a5] focus:border-[#d98b9a]"
                 />
               </div>
 
+              {error && (
+                <p
+                  role="alert"
+                  className="text-sm text-red-600"
+                >
+                  {error}
+                </p>
+              )}
+
               <button
                 type="submit"
-                className="w-full rounded-full bg-[#4b3443] px-6 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#3d2936]"
+                disabled={loading}
+                className="w-full rounded-full bg-[#4b3443] px-6 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#3d2936] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create account
+                {loading ? "Creating account..." : "Create account"}
               </button>
             </form>
 
