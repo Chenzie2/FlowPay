@@ -1,5 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -20,20 +22,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // Temporary test user.
-        // We will replace this with the database lookup.
-        if (
-          credentials.email === "demo@flowpay.com" &&
-          credentials.password === "flowpay123"
-        ) {
-          return {
-            id: "demo-user",
-            name: "Zawadi",
-            email: "demo@flowpay.com",
-          };
+        const email = String(credentials.email).trim().toLowerCase();
+        const password = String(credentials.password);
+
+        const user = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (!user) {
+          return null;
         }
 
-        return null;
+        const passwordMatches = await bcrypt.compare(
+          password,
+          user.passwordHash,
+        );
+
+        if (!passwordMatches) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        };
       },
     }),
   ],
