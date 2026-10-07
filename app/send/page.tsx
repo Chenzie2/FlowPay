@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-
 
 type Recipient = {
   name: string;
@@ -27,25 +26,91 @@ const recipients: Recipient[] = [
 export default function SendMoneyPage() {
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const [amount, setAmount] = useState("");
-  const [step, setStep] = useState<"recipient" | "amount" | "review" | "success">(
-    "recipient",
-  );
+  const [balance, setBalance] = useState<number | null>(null);
+  const [step, setStep] = useState<
+    "recipient" | "amount" | "review" | "success"
+  >("recipient");
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState("");
 
   const numericAmount = Number(amount);
 
+  useEffect(() => {
+    async function loadBalance() {
+      try {
+        const response = await fetch("/api/account");
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        setBalance(data.balance);
+      } catch {
+        // The send API will perform the authoritative balance check.
+      }
+    }
+
+    loadBalance();
+  }, []);
+
   function handleContinue() {
+    setError("");
+
     if (step === "recipient" && recipient) {
       setStep("amount");
       return;
     }
 
-    if (step === "amount" && numericAmount > 0) {
+    if (
+      step === "amount" &&
+      Number.isInteger(numericAmount) &&
+      numericAmount > 0
+    ) {
+      if (balance !== null && numericAmount > balance) {
+        setError("That amount is more than your available balance.");
+        return;
+      }
+
       setStep("review");
     }
   }
 
-  function handleSend() {
-    setStep("success");
+  async function handleSend() {
+    if (!recipient || !Number.isInteger(numericAmount) || numericAmount <= 0) {
+      return;
+    }
+
+    setIsSending(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipientName: recipient.name,
+          amount: numericAmount,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error ?? "Unable to send payment.");
+        setIsSending(false);
+        return;
+      }
+
+      setBalance(data.balance);
+      setStep("success");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
   }
 
   return (
@@ -98,7 +163,6 @@ export default function SendMoneyPage() {
             </div>
 
             <div className="mt-10">
-              {/* Recipient step */}
               {step === "recipient" && (
                 <div className="space-y-3">
                   {recipients.map((item) => {
@@ -107,7 +171,11 @@ export default function SendMoneyPage() {
                     return (
                       <button
                         key={item.name}
-                        onClick={() => setRecipient(item)}
+                        type="button"
+                        onClick={() => {
+                          setRecipient(item);
+                          setError("");
+                        }}
                         className={`flex w-full items-center justify-between rounded-2xl border p-5 text-left transition ${
                           selected
                             ? "border-[#d98b9a] bg-[#f5e1e5]"
@@ -147,7 +215,6 @@ export default function SendMoneyPage() {
                 </div>
               )}
 
-              {/* Amount step */}
               {step === "amount" && (
                 <div className="rounded-[2rem] border border-[#ebe4e1] bg-white p-7 sm:p-10">
                   <label
@@ -166,8 +233,12 @@ export default function SendMoneyPage() {
                       id="amount"
                       type="number"
                       min="1"
+                      step="1"
                       value={amount}
-                      onChange={(event) => setAmount(event.target.value)}
+                      onChange={(event) => {
+                        setAmount(event.target.value);
+                        setError("");
+                      }}
                       placeholder="0"
                       autoFocus
                       className="w-full bg-transparent text-5xl font-semibold tracking-[-0.05em] outline-none placeholder:text-[#d9d1ce]"
@@ -175,12 +246,14 @@ export default function SendMoneyPage() {
                   </div>
 
                   <p className="mt-4 text-xs text-[#766d72]">
-                    Available balance: KSh 84,250
+                    Available balance:{" "}
+                    {balance !== null
+                      ? `KSh ${balance.toLocaleString()}`
+                      : "Loading..."}
                   </p>
                 </div>
               )}
 
-              {/* Review step */}
               {step === "review" && (
                 <div className="overflow-hidden rounded-[2rem] border border-[#ebe4e1] bg-white">
                   <div className="p-7 sm:p-10">
@@ -190,10 +263,14 @@ export default function SendMoneyPage() {
                       </div>
 
                       <div>
-                        <p className="text-sm text-[#766d72]">Sending to</p>
+                        <p className="text-sm text-[#766d72]">
+                          Sending to
+                        </p>
+
                         <p className="mt-1 font-semibold">
                           {recipient?.name}
                         </p>
+
                         <p className="mt-1 text-xs text-[#766d72]">
                           {recipient?.phone}
                         </p>
@@ -219,7 +296,9 @@ export default function SendMoneyPage() {
 
                     <div className="mt-3 flex items-center justify-between text-sm font-medium">
                       <span>Total</span>
-                      <span>KSh {numericAmount.toLocaleString()}</span>
+                      <span>
+                        KSh {numericAmount.toLocaleString()}
+                      </span>
                     </div>
                   </div>
 
@@ -231,13 +310,26 @@ export default function SendMoneyPage() {
                 </div>
               )}
 
-              {/* Actions */}
+              {error && (
+                <div className="mt-5 rounded-2xl border border-[#e8c7ce] bg-[#fdf0f2] px-4 py-3">
+                  <p className="text-sm text-[#7a3f4c]">{error}</p>
+                </div>
+              )}
+
               <div className="mt-8 flex items-center justify-between">
                 {step !== "recipient" ? (
                   <button
+                    type="button"
                     onClick={() => {
-                      if (step === "amount") setStep("recipient");
-                      if (step === "review") setStep("amount");
+                      setError("");
+
+                      if (step === "amount") {
+                        setStep("recipient");
+                      }
+
+                      if (step === "review") {
+                        setStep("amount");
+                      }
                     }}
                     className="text-sm font-medium text-[#766d72] transition hover:text-[#4b3443]"
                   >
@@ -254,17 +346,24 @@ export default function SendMoneyPage() {
 
                 {step === "review" ? (
                   <button
+                    type="button"
                     onClick={handleSend}
-                    className="rounded-full bg-[#4b3443] px-7 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#3d2936]"
+                    disabled={isSending}
+                    className="rounded-full bg-[#4b3443] px-7 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#3d2936] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Send KSh {numericAmount.toLocaleString()}
+                    {isSending
+                      ? "Sending..."
+                      : `Send KSh ${numericAmount.toLocaleString()}`}
                   </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={handleContinue}
                     disabled={
                       (step === "recipient" && !recipient) ||
-                      (step === "amount" && numericAmount <= 0)
+                      (step === "amount" &&
+                        (!Number.isInteger(numericAmount) ||
+                          numericAmount <= 0))
                     }
                     className="rounded-full bg-[#4b3443] px-7 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#3d2936] disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -276,7 +375,6 @@ export default function SendMoneyPage() {
           </>
         )}
 
-        {/* Success */}
         {step === "success" && (
           <div className="flex min-h-[65vh] flex-col items-center justify-center text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#f5e1e5] text-3xl text-[#4b3443]">
@@ -305,9 +403,11 @@ export default function SendMoneyPage() {
               </Link>
 
               <button
+                type="button"
                 onClick={() => {
                   setRecipient(null);
                   setAmount("");
+                  setError("");
                   setStep("recipient");
                 }}
                 className="rounded-full border border-[#ebe4e1] bg-white px-7 py-3.5 text-sm font-medium text-[#4b3443]"
