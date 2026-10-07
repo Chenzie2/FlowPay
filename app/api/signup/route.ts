@@ -42,6 +42,12 @@ export async function POST(request: Request) {
         name,
         email,
         passwordHash,
+        account: {
+          create: {
+            currency: "KES",
+            balance: 0,
+          },
+        },
       },
     });
 
