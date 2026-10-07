@@ -14,12 +14,8 @@ export async function GET() {
     }
 
     const user = await prisma.user.findUnique({
-      where: {
-        email: session.user.email,
-      },
-      include: {
-        account: true,
-      },
+      where: { email: session.user.email },
+      include: { account: true },
     });
 
     if (!user?.account) {
@@ -29,9 +25,17 @@ export async function GET() {
       );
     }
 
+    const accountReference = `FP-${user.account.id
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(-8)
+      .toUpperCase()}`;
+
     return NextResponse.json({
+      name: user.name,
+      email: user.email,
       balance: user.account.balance,
       currency: user.account.currency,
+      accountReference,
     });
   } catch (error) {
     console.error("Account fetch error:", error);
