@@ -1,92 +1,69 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/page-header";
 
 type Transaction = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   date: string;
   amount: number;
   type: "in" | "out";
+  status: string;
 };
-
-const transactions: Transaction[] = [
-  {
-    id: 1,
-    name: "Maya Studio",
-    description: "Payment received",
-    date: "Today, 10:42 AM",
-    amount: 8500,
-    type: "in",
-  },
-  {
-    id: 2,
-    name: "Kofi Market",
-    description: "Payment sent",
-    date: "Today, 8:16 AM",
-    amount: 1850,
-    type: "out",
-  },
-  {
-    id: 3,
-    name: "Amani Designs",
-    description: "Payment received",
-    date: "Yesterday, 4:32 PM",
-    amount: 4200,
-    type: "in",
-  },
-  {
-    id: 4,
-    name: "Swift Coffee",
-    description: "Payment sent",
-    date: "Yesterday, 11:08 AM",
-    amount: 680,
-    type: "out",
-  },
-  {
-    id: 5,
-    name: "Maya Studio",
-    description: "Payment received",
-    date: "28 Sep, 2:15 PM",
-    amount: 12500,
-    type: "in",
-  },
-  {
-    id: 6,
-    name: "Nia Boutique",
-    description: "Payment sent",
-    date: "27 Sep, 6:40 PM",
-    amount: 3200,
-    type: "out",
-  },
-  {
-    id: 7,
-    name: "Amani Designs",
-    description: "Payment received",
-    date: "26 Sep, 9:20 AM",
-    amount: 7500,
-    type: "in",
-  },
-  {
-    id: 8,
-    name: "Swift Coffee",
-    description: "Payment sent",
-    date: "24 Sep, 3:18 PM",
-    amount: 950,
-    type: "out",
-  },
-];
 
 type Filter = "all" | "in" | "out";
 
+function formatTransactionDate(date: string) {
+  return new Intl.DateTimeFormat("en-KE", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
+
+function formatTransactionId(id: string) {
+  return `FP-${id.slice(-8).toUpperCase()}`;
+}
+
 export default function TransactionsPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadTransactions() {
+      try {
+        const response = await fetch("/api/transactions");
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Unable to load your transactions.",
+          );
+        }
+
+        setTransactions(data.transactions);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load your transactions.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTransactions();
+  }, []);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((transaction) => {
@@ -102,7 +79,69 @@ export default function TransactionsPage() {
 
       return matchesFilter && matchesSearch;
     });
-  }, [filter, search]);
+  }, [transactions, filter, search]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#fdfbf9] text-[#241f23]">
+        <PageHeader />
+
+        <div className="mx-auto max-w-4xl px-6 py-12 lg:py-16">
+          <div>
+            <p className="text-sm font-medium text-[#d98b9a]">
+              Activity
+            </p>
+
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+              Your transactions
+            </h1>
+
+            <p className="mt-2 text-sm leading-6 text-[#766d72]">
+              Keep track of money moving in and out of your FlowPay
+              account.
+            </p>
+          </div>
+
+          <div className="mt-10 rounded-[2rem] border border-[#ebe4e1] bg-white px-6 py-16 text-center sm:px-8">
+            <p className="text-sm text-[#766d72]">
+              Loading your transactions...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-[#fdfbf9] text-[#241f23]">
+        <PageHeader />
+
+        <div className="mx-auto max-w-4xl px-6 py-12 lg:py-16">
+          <div>
+            <p className="text-sm font-medium text-[#d98b9a]">
+              Activity
+            </p>
+
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+              Your transactions
+            </h1>
+          </div>
+
+          <div className="mt-10 rounded-[2rem] border border-[#e6c9cf] bg-[#fdf0f2] px-6 py-10 text-center sm:px-8">
+            <p className="text-sm text-[#7a3f4b]">{error}</p>
+
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-5 rounded-full bg-[#4b3443] px-5 py-2.5 text-xs font-medium text-white transition hover:bg-[#3d2936]"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#fdfbf9] text-[#241f23]">
@@ -142,7 +181,9 @@ export default function TransactionsPage() {
             ].map((option) => (
               <button
                 key={option.value}
-                onClick={() => setFilter(option.value as Filter)}
+                onClick={() =>
+                  setFilter(option.value as Filter)
+                }
                 className={`rounded-full px-4 py-2.5 text-xs font-medium transition ${
                   filter === option.value
                     ? "bg-[#4b3443] text-white"
@@ -170,12 +211,14 @@ export default function TransactionsPage() {
               {filteredTransactions.map((transaction) => (
                 <button
                   key={transaction.id}
-                  onClick={() => setSelectedTransaction(transaction)}
+                  onClick={() =>
+                    setSelectedTransaction(transaction)
+                  }
                   className="flex w-full items-center justify-between gap-4 border-b border-[#f0ebe8] px-6 py-5 text-left transition last:border-b-0 hover:bg-[#fdfbf9] sm:px-8"
                 >
                   <div className="flex min-w-0 items-center gap-4">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f5e1e5] text-sm font-semibold text-[#4b3443]">
-                      {transaction.name.charAt(0)}
+                      {transaction.name.charAt(0).toUpperCase()}
                     </div>
 
                     <div className="min-w-0">
@@ -184,7 +227,8 @@ export default function TransactionsPage() {
                       </p>
 
                       <p className="mt-1 truncate text-xs text-[#766d72]">
-                        {transaction.description} · {transaction.date}
+                        {transaction.description} ·{" "}
+                        {formatTransactionDate(transaction.date)}
                       </p>
                     </div>
                   </div>
@@ -262,7 +306,9 @@ export default function TransactionsPage() {
 
             <div className="mt-8 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f5e1e5] text-lg font-semibold text-[#4b3443]">
-                {selectedTransaction.name.charAt(0)}
+                {selectedTransaction.name
+                  .charAt(0)
+                  .toUpperCase()}
               </div>
 
               <h2 className="mt-5 text-lg font-semibold">
@@ -282,22 +328,34 @@ export default function TransactionsPage() {
             <div className="my-7 h-px bg-[#ebe4e1]" />
 
             <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-6">
                 <span className="text-[#766d72]">Status</span>
-                <span className="font-medium">Completed</span>
-              </div>
 
-              <div className="flex justify-between">
-                <span className="text-[#766d72]">Date</span>
                 <span className="font-medium">
-                  {selectedTransaction.date}
+                  {selectedTransaction.status.charAt(0) +
+                    selectedTransaction.status
+                      .slice(1)
+                      .toLowerCase()}
                 </span>
               </div>
 
-              <div className="flex justify-between">
-                <span className="text-[#766d72]">Transaction ID</span>
+              <div className="flex justify-between gap-6">
+                <span className="text-[#766d72]">Date</span>
+
+                <span className="text-right font-medium">
+                  {formatTransactionDate(
+                    selectedTransaction.date,
+                  )}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-6">
+                <span className="text-[#766d72]">
+                  Transaction ID
+                </span>
+
                 <span className="font-medium">
-                  FP-{selectedTransaction.id.toString().padStart(6, "0")}
+                  {formatTransactionId(selectedTransaction.id)}
                 </span>
               </div>
             </div>
