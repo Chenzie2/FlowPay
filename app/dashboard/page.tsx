@@ -1,10 +1,24 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import FlowPayLogo from "@/components/flowpay-logo";
 
 export default async function DashboardPage() {
   const session = await auth();
   const userName = session?.user?.name ?? "there";
+
+  const user = session?.user?.email
+  ? await prisma.user.findUnique({
+      where: {
+        email: session.user.email,
+      },
+      include: {
+        account: true,
+      },
+    })
+  : null;
+
+const account = user?.account;
 
   return (
     <main className="min-h-screen bg-[#fdfbf9] text-[#241f23]">
@@ -50,7 +64,8 @@ export default async function DashboardPage() {
             <p className="text-sm text-white/70">Available balance</p>
 
             <p className="mt-4 text-4xl font-semibold tracking-[-0.04em]">
-              KSh 84,250
+              {account?.currency ?? "KES"}{" "}
+              {account?.balance.toLocaleString() ?? "0"}
             </p>
 
             <p className="mt-2 text-sm text-white/60">
@@ -121,9 +136,7 @@ export default async function DashboardPage() {
                 </p>
               </div>
 
-              <p className="text-sm font-medium">
-                - KSh 1,850
-              </p>
+              <p className="text-sm font-medium">- KSh 1,850</p>
             </div>
           </div>
         </section>
